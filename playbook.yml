@@ -1,0 +1,9 @@
+---
+- name: Install Package
+  hosts: windows
+  tasks:
+    - name: Install Notepad++
+      win_package:
+        name: Notepad++
+        state: present
+

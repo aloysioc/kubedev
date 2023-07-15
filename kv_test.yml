@@ -1,0 +1,45 @@
+---
+- name: Acesso ao Key Vault do Azure
+  hosts: windows_servers
+  gather_facts: false
+  vars_files:
+    - ~/user_data.yml
+
+  vars:
+    ansible_python_interpreter: /usr/bin/python3
+    ansible_connection: winrm
+    ansible_winrm_transport: ntlm
+    ansible_winrm_server_cert_validation: ignore
+    ansible_user: ttechadmin
+    ansible_password: "{{ adm_password }}"
+    ansible_port: 5985
+    azure_subscription_id: "{{ subscription_id }}"
+    azure_client_id: "{{ client_id }}"
+    azure_client_secret: "{{ secret }}"
+    azure_tenant_id: "{{ tenant }}"
+    key_vault_name: "User-Pass"
+    certificate_name: "cert-ansible"
+    pfx_password: "{{ cert_password }}"
+
+  tasks:
+
+#    - name: Criar script de cópia do certificado
+#      blockinfile:
+#        path: /tmp/copy_certificate.ps1
+          #        marker: "# {mark} ANSIBLE MANAGED BLOCK {{ item }}"
+          #        content: |
+          #          $sourceVaultName = "{{ key_vault_name }}"
+          #          $sourceSecretName = "{{ certificate_name }}"
+
+    #          $certBytes = (Get-AzKeyVaultSecret -VaultName $sourceVaultName -Name $sourceSecretName).SecretValue
+    #      $certFile = "C:/temp/certificate.pfx"
+    #      $certBytes | Out-File -FilePath $certFile -Encoding Byte
+
+          # Copiar o certificado para o destino
+          #      Copy-Item -Path $certFile -Destination "C:/temp/certificate.pfx"
+
+    
+    - name: Executar script de instalação NuGet
+      win_shell: Install-PackageProvider -Name NuGet -MinimumVersion 2.8.5.201 -Force
+    - name: Executar script de cópia do certificado
+      win_shell: Install-Module -Name Az -AllowClobber -Scope CurrentUser

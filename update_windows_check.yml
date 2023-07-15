@@ -1,0 +1,35 @@
+- name: Update Windows systems
+  hosts: windows_servers
+  gather_facts: false
+  vars_files:
+    - ~/user_data.yml
+  vars:
+    ansible_connection: winrm
+    ansible_winrm_transport: ntlm
+    ansible_winrm_server_cert_validation: ignore
+    ansible_port: 5985
+    ansible_user: ttechadmin
+    ansible_password: '{{ adm_password }}'
+
+  tasks:
+    - name: Get pending updates
+      win_updates:
+        category_names:
+          - Application
+          - Connectors
+          - CriticalUpdates
+          - DefinitionUpdates
+          - DeveloperKits
+          - FeaturePacks
+          - Guidance
+          - SecurityUpdates
+          - ServicePacks
+          - Tools
+          - UpdateRollups
+          - Updates
+        state: searched
+      register: updates_result
+
+    - name: Print updates
+      debug:
+        var: updates_result

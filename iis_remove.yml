@@ -1,0 +1,41 @@
+---
+- name: Remove IIS
+  hosts: windows_servers
+  gather_facts: false
+  vars_files:
+    - ~/user_data.yml
+  vars:
+    ansible_connection: winrm
+    ansible_winrm_transport: ntlm
+    ansible_winrm_server_cert_validation: ignore
+    ansible_user: ttechadmin
+    ansible_password: "{{ adm_password }}"
+    ansible_port: 5985
+
+  tasks:
+    - name: Stop IIS Service
+      win_service:
+        name: w3svc
+        state: stopped
+
+    - name: Stop Windows Process Activation Service
+      win_service:
+        name: was
+        state: stopped
+
+    - name: Uninstall IIS
+      win_feature:
+        name: Web-Server
+        state: absent
+      register: iis
+
+    - name: Remove IIS directories
+      win_file:
+        path: C:\inetpub
+        state: absent
+
+    - name: Restart server
+      win_reboot:
+        reboot_timeout: 3000
+        msg: "Server will be restarted in 5 minutes"
+      when: iis.reboot_required

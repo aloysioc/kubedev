@@ -1,0 +1,35 @@
+---
+- name: Instalar certificado SSL no IIS
+  hosts: windows_servers
+  gather_facts: false
+  vars_files:
+    - ~/user_data.yml
+  vars:
+    ansible_connection: winrm
+    ansible_winrm_transport: ntlm
+    ansible_winrm_server_cert_validation: ignore
+    ansible_user: ttechadmin
+    ansible_password: "{{ adm_password }}"
+    ansible_port: 5985
+
+  tasks:
+
+    - name: Importa certificado
+      win_certificate_store:
+        path: C:/Temp/cert-ansible.pfx
+        password: "{{ cert_password }}"
+        state: present
+
+    - name: Configurar ligacao HTTPS
+      win_iis_webbinding:
+        name: omint
+        protocol: https
+        port: 443
+        certificate_hash: 59249a9cd2d58c74cdda9586c2a854f7f1a40a70
+        host_header: w2k19omint1
+        state: present
+
+    - name: Reiniciar IIS
+      win_service:
+        name: W3SVC
+        state: restarted

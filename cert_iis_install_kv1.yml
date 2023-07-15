@@ -1,0 +1,81 @@
+---
+- name: Instalar Certificado SSL no IIS
+  hosts: windows_servers
+  gather_facts: false
+  vars_files:
+    - ~/user_data.yml
+
+  vars:
+    ansible_python_interpreter: /usr/bin/python3
+    ansible_connection: winrm
+    ansible_winrm_transport: ntlm
+    ansible_winrm_server_cert_validation: ignore
+    ansible_user: ttechadmin
+    ansible_password: "{{ adm_password }}"
+    ansible_port: 5985
+    azure_subscription_id: "{{ subscription_id }}"
+    azure_client_id: "{{ client_id }}"
+    azure_client_secret: "{{ secret }}"
+    azure_tenant_id: "{{ tenant }}"
+    key_vault_name: "User-Pass"
+    certificate_name: "cert-ansible"
+    pfx_password: "{{ cert_password }}"
+
+  tasks:
+
+    - name: Print client_id
+      debug:
+        msg: "{{ azure_client_id }}"
+    - name: Print client_secret
+      debug:
+        msg: "{{ azure_client_secret }}"
+    - name: Print subscription_id
+      debug:
+        msg: "{{ azure_subscription_id }}"
+    - name: Print tenant_id
+      debug:
+        msg: "{{ tenant }}"
+
+    - name: Obter segredo do Azure Key Vault
+      azure.azcollection.azure_rm_keyvaultsecret_info:
+        name: "{{ certificate_name }}"
+        vault_uri: "https://{{ key_vault_name }}.vault.azure.net/"
+        client_id: "{{ azure_client_id }}"
+        client_secret: "{{ azure_client_secret }}"
+        subscription_id: "{{ azure_subscription_id }}"
+        tenant: "{{ azure_tenant_id }}"
+      register: secret_info
+
+    - name: Exportar segredo do Key Vault para arquivo PFX
+      azure.azcollection.azure_rm_keyvaultsecret:
+        name: "{{ certificate_name }}"
+        secret_name: "https://{{ key_vault_name }}.vault.azure.net/secrets/cert-ansible/a1b692b4854d4004972e714ef4ed5376"
+        vault_url: "https://{{ key_vault_name }}.vault.azure.net/"
+        auth_info: "{{ azure_auth_info }}"
+        file_path: "/tmp/{{ certificate_name }}.pfx"
+        file_password: "{{ pfx_password }}"
+      when: secret_info.secrets | length > 0
+
+    - name: Copiar arquivo PFX para o servidor IIS
+      win_copy:
+        src: "/tmp/{{ certificate_name }}.pfx"
+        dest: "C:\\temp\\{{ certificate_name }}.pfx"
+      delegate_to: localhost
+      when: secret_info.secrets | length > 0
+
+    - name: Importar certificado no IIS
+      win_shell: |
+        Import-Module WebAdministration
+        $certPath = "C:\\temp\\{{ certificate_name }}.pfx"
+        $certPassword = ConvertTo-SecureString -String "{{ pfx_password }}" -Force -AsPlainText
+        $iisSiteName = "Default Web Site"  # Nome do site do IIS onde o certificado será instalado
+        $iisBinding = "*:443:"  # Binding do site do IIS onde o certificado será instalado
+        $cert = Import-PfxCertificate -FilePath $certPath -CertStoreLocation Cert:\\LocalMachine\\My -Password $certPassword
+        $iisBindingObj = Get-WebBinding -Protocol https -Port 443 -Name $iisSiteName
+        if ($iisBindingObj) {
+          $iisBindingObj.RemoveSslCertificate()
+          $iisBindingObj.AddSslCertificate($cert.GetCertHashString(), $iisBinding)
+        }
+      delegate_to: seu_host
+      when: secret_info.secrets | length > 0
+

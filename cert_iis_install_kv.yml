@@ -1,0 +1,44 @@
+---
+- name: Instalar certificado SSL no IIS usando o Azure Key Vault
+  hosts: windows_servers
+  gather_facts: false
+  vars_files:
+    - ~/user_data.yml
+
+  vars:
+    ansible_connection: winrm
+    ansible_winrm_transport: ntlm
+    ansible_winrm_server_cert_validation: ignore
+    ansible_user: ttechadmin
+    ansible_password: "{{ adm_password }}"
+    ansible_port: 5985
+
+  tasks:
+    - name: Obter segredo do certificado do Azure Key Vault
+      azure.azcollection.azure_rm_keyvaultsecret_info:
+        name: "cert-ansible"
+        vault_uri: "https://user-pass.vault.azure.net/"
+        client_id: "{{ client_id }}"
+        secret: "{{ secret }}"
+        subscription_id: "{{ subscription_id }}"
+        tenant: "{{ tenant }}"
+      register: cert_info
+
+    - name: Exportar certificado para arquivo PFX
+      azure.azcollection.azure_rm_keyvaultsecret:
+        secret_id: "{{ cert_password }}"
+        vault_uri: "https://user-pass.vault.azure.net/"
+        client_id: "{{ client_id }}"
+        secret: "{{ secret }}"
+        dest: "C:/Temp/cert-ansible1.pfx"
+      delegate_to: localhost
+
+    - name: Instalar certificado no IIS
+      win_iis_webbinding:
+        name: "omint"
+        protocol: "https"
+        port: "443"
+        certificate_store_name: "MY"
+        certificate_path: "C:/Temp/cert-ansible1.pfx"
+        certificate_password: "{{ cert_password }}"
+

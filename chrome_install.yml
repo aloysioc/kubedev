@@ -1,0 +1,42 @@
+---
+- name: Instalar Google Chrome
+  hosts: windows_servers
+  gather_facts: false
+  vars_files:
+    - ~/user_data.yml
+  vars:
+    ansible_connection: winrm
+    ansible_winrm_transport: ntlm
+    ansible_winrm_server_cert_validation: ignore
+    ansible_user: ttechadmin
+    ansible_password: "{{ adm_password }}"
+    ansible_port: 5985
+
+  tasks:
+
+    - name: Verificar se o diretório já existe
+      win_stat:
+        path: C:\Temp
+      register: dir_check
+
+    - name: Criar diretório
+      win_file:
+        path: C:\Temp
+        state: directory
+      when: not dir_check.stat.exists
+
+    - name: Baixar o instalador do Google Chrome
+      win_get_url:
+        url: "https://dl.google.com/chrome/install/latest/chrome_installer.exe"
+        dest: "C:/Temp/chrome_installer.exe"
+
+    - name: Instalacao do Google Chrome
+      win_shell: |
+        Start-Process -FilePath "C:\Temp\chrome_installer.exe" -ArgumentList "/silent /install" -Wait
+      register: install_output
+      changed_when: "'Installation completed' in install_output.stdout"
+
+    - name: Remover o instalador do Google Chrome
+      win_file:
+        path: C:\Temp\chrome_installer.exe
+        state: absent          
